@@ -23,7 +23,7 @@ def configure_logging(settings: LoggingSettings) -> None:
     ]
     processors.append(
         structlog.processors.JSONRenderer()
-        if settings.json
+                if settings.json_output
         else structlog.dev.ConsoleRenderer()
     )
 

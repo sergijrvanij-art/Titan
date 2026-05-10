@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CoreSettings(BaseModel):
@@ -67,8 +67,10 @@ class TransferSettings(BaseModel):
 
 
 class LoggingSettings(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     level: str = "INFO"
-    json: bool = True
+    json_output: bool = Field(default=True, alias="json")
     live_buffer: int = 2000
 
 
