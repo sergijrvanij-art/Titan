@@ -37,6 +37,12 @@ class Database:
             await self._conn.executemany(sql, params)
             await self._conn.commit()
 
+    async def executescript(self, sql: str) -> None:
+        assert self._conn is not None
+        async with self._lock:
+            await self._conn.executescript(sql)
+            await self._conn.commit()
+
     async def fetchone(self, sql: str, params: tuple[Any, ...] = ()) -> dict | None:
         assert self._conn is not None
         async with self._lock:

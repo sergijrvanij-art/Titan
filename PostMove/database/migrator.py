@@ -25,7 +25,7 @@ class Migrator:
         for migration in sorted(self._dir.glob("*.sql")):
             if migration.name in applied:
                 continue
-            await self._db.execute(migration.read_text(encoding="utf-8"))
+            await self._db.executescript(migration.read_text(encoding="utf-8"))
             await self._db.execute(
                 "INSERT INTO schema_migrations(name) VALUES (?)",
                 (migration.name,),
