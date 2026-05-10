@@ -45,6 +45,12 @@
     "compress_videos": false,
     "cleanup_temp": true
   },
+  "transfer": {
+    "live_mode_enabled": true,
+    "transfer_delay_seconds": 0.0,
+    "reaction_emojis": ["👍"],
+    "discussion_comment_scan_limit": 20
+  },
   "logging": {
     "level": "INFO",
     "json": true,

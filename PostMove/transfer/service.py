@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 from telethon.utils import get_display_name
 
@@ -10,6 +11,7 @@ from PostMove.database.repositories import (
     CheckpointRepository,
     LogRepository,
     PostRepository,
+    SettingsRepository,
     TransferJobRepository,
 )
 from PostMove.logging.structured import get_logger
@@ -34,6 +36,7 @@ class TransferService:
         content_processor: ContentProcessor,
         media_service: MediaService,
         logs_repo: LogRepository,
+        settings_repo: SettingsRepository,
         ai_service: AIModuleService | None = None,
     ) -> None:
         self._settings = settings
@@ -46,20 +49,27 @@ class TransferService:
         self._content_processor = content_processor
         self._media_service = media_service
         self._logs_repo = logs_repo
+        self._settings_repo = settings_repo
         self._ai = ai_service or AIModuleService()
         self._paused = asyncio.Event()
         self._paused.set()
         self._cancelled = False
         self._listener_registered = False
-        self._live_enabled = True
+        self._live_enabled = settings.transfer.live_mode_enabled
         self._completed = 0
         self._failed = 0
         self._last_activity: str | None = None
+        self._runtime_reactions = list(settings.transfer.reaction_emojis)
+        self._runtime_delay = settings.transfer.transfer_delay_seconds
+        self._runtime_cache_ts = 0.0
+        self._runtime_cache_ttl = 5.0
         self._userbot.set_channel_provider(channels_repo)
 
     def reload_settings(self, settings: AppSettings) -> None:
         self._settings = settings
         self._content_processor.reload(settings.processing)
+        self._runtime_reactions = list(settings.transfer.reaction_emojis)
+        self._runtime_delay = settings.transfer.transfer_delay_seconds
 
     async def start_history_transfer(self, source: str, target: str, limit: int = 500) -> int:
         payload = {"source": source, "target": target, "limit": limit}
@@ -163,6 +173,7 @@ class TransferService:
             if processed.denied:
                 await self._logs_repo.add("INFO", "transfer_denied", {"message_id": source_message_id})
                 return
+            await self._refresh_runtime_overrides()
             ai_result = self._ai.analyze(processed.text)
             if (
                 self._settings.ai.enabled
@@ -194,12 +205,12 @@ class TransferService:
                 },
             )
 
-            media_path = await self._media_service.prepare_media(source_message)
+            prepared_media = await self._media_service.prepare_media(source_message)
             try:
-                if media_path:
+                if prepared_media:
                     sent = await self._userbot.send_media(
                         target_chat,
-                        media_path,
+                        prepared_media.path,
                         caption=processed.text,
                         buttons=processed.buttons or None,
                     )
@@ -210,13 +221,27 @@ class TransferService:
                         buttons=processed.buttons or None,
                     )
             finally:
-                await self._media_service.cleanup(media_path)
+                await self._media_service.cleanup(prepared_media)
 
             await self._posts_repo.save_mapping(source_chat, source_message_id, target_chat, sent.id)
             await self._checkpoint_repo.set(
                 f"history:{source_chat}:{target_chat}",
                 {"last_message_id": source_message_id},
             )
+            reacted = await self._userbot.react_to_discussion_comments(
+                channel=target_chat,
+                channel_message_id=sent.id,
+                emojis=self._runtime_reactions,
+                comments_limit=self._settings.transfer.discussion_comment_scan_limit,
+            )
+            if reacted:
+                await self._logs_repo.add(
+                    "INFO",
+                    "discussion_comment_reacted",
+                    {"target_chat": target_chat, "message_id": sent.id, "count": reacted},
+                )
+            if self._runtime_delay > 0:
+                await asyncio.sleep(self._runtime_delay)
             await self._logs_repo.add(
                 "INFO",
                 "transfer_done",
@@ -227,3 +252,21 @@ class TransferService:
         except Exception:
             self._failed += 1
             raise
+
+    async def _refresh_runtime_overrides(self) -> None:
+        now = time.monotonic()
+        if now - self._runtime_cache_ts < self._runtime_cache_ttl:
+            return
+        self._runtime_cache_ts = now
+
+        reactions = await self._settings_repo.get("reactions", default=None)
+        if isinstance(reactions, list):
+            normalized = [str(item).strip() for item in reactions if str(item).strip()]
+            if normalized:
+                self._runtime_reactions = normalized
+
+        delays = await self._settings_repo.get("delays", default=None)
+        if isinstance(delays, dict):
+            raw_delay = delays.get("transfer_delay_seconds")
+            if isinstance(raw_delay, (int, float)) and raw_delay >= 0:
+                self._runtime_delay = float(raw_delay)

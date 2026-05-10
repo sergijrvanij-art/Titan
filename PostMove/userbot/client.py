@@ -7,6 +7,7 @@ from telethon.errors import FloodWaitError
 
 from PostMove.logging.structured import get_logger
 from PostMove.settings.models import TelegramSettings
+from PostMove.userbot.reactions import CommentReactionService
 
 LOGGER = get_logger(__name__)
 
@@ -17,6 +18,7 @@ class UserbotClient:
         self._client = TelegramClient(settings.session_name, settings.api_id, settings.api_hash)
         self._on_message_callbacks = []
         self._channel_provider = None
+        self._reactions = CommentReactionService(self._client)
 
     async def connect(self) -> None:
         await self._client.connect()
@@ -42,17 +44,22 @@ class UserbotClient:
             yield message
 
     async def get_message(self, chat: str, message_id: int):
-        messages = await self._client.get_messages(chat, ids=message_id)
+        messages = await self.safe_call(lambda: self._client.get_messages(chat, ids=message_id))
         return messages
 
     async def send_text(self, target_chat: str, text: str, buttons=None):
-        return await self._client.send_message(target_chat, text, buttons=buttons, link_preview=False)
+        return await self.safe_call(
+            lambda: self._client.send_message(target_chat, text, buttons=buttons, link_preview=False)
+        )
 
     async def send_media(self, target_chat: str, file_path, caption: str | None = None, buttons=None):
-        return await self._client.send_file(target_chat, file_path, caption=caption, buttons=buttons)
+        return await self.safe_call(
+            lambda: self._client.send_file(target_chat, file_path, caption=caption, buttons=buttons)
+        )
 
     async def register_live_listener(self, transfer_callback):
         if self._on_message_callbacks:
+            self._on_message_callbacks.append(transfer_callback)
             return
 
         @self._client.on(events.NewMessage())
@@ -61,6 +68,33 @@ class UserbotClient:
                 await callback(event)
 
         self._on_message_callbacks.append(transfer_callback)
+
+    async def react_to_discussion_comments(
+        self,
+        channel: str,
+        channel_message_id: int,
+        emojis: list[str],
+        comments_limit: int = 20,
+    ) -> int:
+        if not emojis:
+            return 0
+        try:
+            channel_peer = await self.safe_call(lambda: self._client.get_entity(channel))
+            return await self._reactions.react_to_discussion_comments(
+                channel_peer=channel_peer,
+                channel_message_id=channel_message_id,
+                emojis=emojis,
+                comments_limit=comments_limit,
+                safe_call=self.safe_call,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning(
+                "discussion_reaction_failed",
+                channel=channel,
+                message_id=channel_message_id,
+                error=str(exc),
+            )
+            return 0
 
     async def safe_call(self, coro_factory):
         attempt = 0

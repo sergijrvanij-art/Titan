@@ -59,6 +59,13 @@ class MediaSettings(BaseModel):
     cleanup_temp: bool = True
 
 
+class TransferSettings(BaseModel):
+    live_mode_enabled: bool = True
+    transfer_delay_seconds: float = 0.0
+    reaction_emojis: list[str] = Field(default_factory=lambda: ["👍"])
+    discussion_comment_scan_limit: int = 20
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     json: bool = True
@@ -79,6 +86,7 @@ class AppSettings(BaseModel):
     queue: QueueSettings
     processing: ProcessingSettings
     media: MediaSettings
+    transfer: TransferSettings
     logging: LoggingSettings
     ai: AISettings
 

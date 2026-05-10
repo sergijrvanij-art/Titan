@@ -73,6 +73,7 @@ async def bootstrap() -> None:
         content_processor=content_processor,
         media_service=media_service,
         logs_repo=logs_repo,
+        settings_repo=settings_repo,
         ai_service=ai_service,
     )
 

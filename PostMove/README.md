@@ -13,6 +13,8 @@ Production-ready async Telegram automation system powered by **Telethon** (userb
 - Structured logging + live log stream + telemetry
 - Parser engine with workers, cache, checkpoints
 - Transfer service with resume/checkpoints and anti-duplicate
+- Discussion comment reactions (on participant comments, not channel posts)
+- Photo/video compression pipeline (Pillow + ffmpeg fallback)
 - Security layer (admin guard, audit actions)
 - AI modules (moderation, fake detection, sentiment, categorization, summary/title)
 - Graceful shutdown, auto reconnect, config live reload, module supervisor
@@ -63,6 +65,7 @@ python -m PostMove.main
 - `/parsers` – parser controls
 - `/settings` – runtime settings
 - `/logs` – live/export logs
+- `/logs_search <query>` – search in logs
 - `/runtime` – runtime metrics
 
 ## Notes
@@ -70,3 +73,4 @@ python -m PostMove.main
 - Keep the userbot account joined to source and target channels.
 - Reactions are applied to discussion comments, not the channel post itself.
 - Queue checkpoints and transfer state are persisted in SQLite to resume after restarts.
+- Run integration checks with: `python3 -m unittest discover -s tests -p "test_*.py"`.
