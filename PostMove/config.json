@@ -1,0 +1,64 @@
+{
+  "core": {
+    "parser_workers": 3,
+    "queue_workers": 4,
+    "config_reload_interval": 10,
+    "graceful_shutdown_timeout": 15
+  },
+  "telegram": {
+    "api_id": 123456,
+    "api_hash": "set-me",
+    "session_name": "postmove.session",
+    "admin_bot_token": "set-me",
+    "request_timeout": 30,
+    "flood_sleep_threshold": 120
+  },
+  "database": {
+    "path": "postmove.db"
+  },
+  "security": {
+    "admin_ids": [111111111],
+    "allow_forwarding_to_unlisted": false
+  },
+  "queue": {
+    "max_size": 10000,
+    "default_retries": 5,
+    "worker_concurrency": 4,
+    "base_backoff_seconds": 2,
+    "max_backoff_seconds": 60,
+    "rate_limit_per_second": 6
+  },
+  "processing": {
+    "source_markers": ["Джерело:", "Source:"],
+    "replacers": {
+      "foo": "bar"
+    },
+    "deny_words": ["spam", "scam"],
+    "auto_bold_title": true,
+    "default_buttons": [
+      {"text": "🔗 Original", "url": "https://t.me"}
+    ]
+  },
+  "media": {
+    "temp_dir": "./tmp_media",
+    "compress_photos": true,
+    "compress_videos": false,
+    "cleanup_temp": true
+  },
+  "transfer": {
+    "live_mode_enabled": true,
+    "transfer_delay_seconds": 0.0,
+    "reaction_emojis": ["👍"],
+    "discussion_comment_scan_limit": 20
+  },
+  "logging": {
+    "level": "INFO",
+    "json": true,
+    "live_buffer": 2000
+  },
+  "ai": {
+    "enabled": true,
+    "moderation_threshold": 0.75,
+    "fake_detection_threshold": 0.7
+  }
+}
